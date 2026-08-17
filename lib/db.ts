@@ -3,9 +3,28 @@ import { PrismaPg } from '@prisma/adapter-pg';
 
 const globalForPrisma = global as unknown as { db: PrismaClient };
 
+const connectionString = process.env.HEROKU_POSTGRESQL_BLUE_URL;
+
+// Heroku Postgres accepts TLS connections only, and presents a self-signed
+// certificate. node-postgres does not negotiate TLS on its own and Heroku's
+// connection strings carry no `sslmode`, so it connects in plaintext and gets
+// turned away by pg_hba.conf as P1010/28000. The Rust query engine this
+// adapter replaced in Prisma 7 handled that automatically. Local Postgres
+// serves no TLS, so leave it alone there.
+function isLocalDb(url?: string): boolean {
+  if (!url) return false;
+  try {
+    const { hostname } = new URL(url);
+    return ['localhost', '127.0.0.1', '::1'].includes(hostname);
+  } catch {
+    return false;
+  }
+}
+
 function initDb(): PrismaClient {
   const adapter = new PrismaPg({
-    connectionString: process.env.HEROKU_POSTGRESQL_BLUE_URL,
+    connectionString,
+    ssl: isLocalDb(connectionString) ? undefined : { rejectUnauthorized: false },
   });
   return new PrismaClient({ adapter });
 }
