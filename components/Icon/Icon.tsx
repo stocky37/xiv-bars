@@ -28,6 +28,9 @@ export default function Icon({
         className={`${styles.iconImage} icon-image`}
         width={16}
         height={16}
+        // Next refuses to run SVG through the optimizer unless
+        // dangerouslyAllowSVG is set, and there is nothing to optimize here.
+        unoptimized
       />
     </span>
   );

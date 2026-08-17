@@ -7,15 +7,24 @@ function proxy(req: NextRequest) {
 
   // redirect from the old domain to the new one and persist query params
   if (req.headers.get('host') === 'xivbars.bejezus.com') {
-    const url = `https://www.xivbars.com/${req.nextUrl.pathname}${req.nextUrl.search}`;
+    const url = `https://www.xivbars.com${req.nextUrl.pathname}${req.nextUrl.search}`;
     return NextResponse.redirect(url, 301);
   }
 
-  // ssl redirect
+  // ssl redirect.
+  //
+  // Static assets are exempt. Next serves local images to its image optimizer
+  // through an in-process request that never passes Heroku's router, so it
+  // always looks insecure; redirecting it hands the optimizer a 301 body
+  // instead of an image and every <Image> on the site 400s. Assets do not need
+  // forcing anyway — the page referencing them is already on https.
+  const forwardedProto = req.headers.get('x-forwarded-proto');
+  const isAssetRequest = /\.[^/]+$/.test(req.nextUrl.pathname);
   if (['production', 'staging'].includes(currentEnv)
-    && req.headers.get('x-forwarded-proto') !== 'https') {
+    && !isAssetRequest
+    && forwardedProto && forwardedProto !== 'https') {
     return NextResponse.redirect(
-      `https://${req.headers.get('host')}${req.nextUrl.pathname}`,
+      `https://${req.headers.get('host')}${req.nextUrl.pathname}${req.nextUrl.search}`,
       301
     );
   }
